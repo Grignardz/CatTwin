@@ -1,10 +1,10 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import {
   Weight, CalendarClock, Activity, Heart, Clock,
   ChevronRight, TrendingUp, TrendingDown, Minus,
   ChevronLeft, X, Plus, PawPrint, Camera, Sparkles, Bell,
 } from "lucide-react";
-import { useState, useRef, useMemo } from "react";
+import { useEffect, useState, useRef, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { PhoneShell } from "@/components/PhoneShell";
 import { useAuth } from "@/lib/auth";
@@ -209,12 +209,21 @@ function EmptyState() {
 
 // ── Main Home component ───────────────────────────────────────────────────────
 function Home() {
+  const navigate = useNavigate();
   const { user } = useAuth();
   const cats = user?.cats ?? [];
   const hasCats = cats.length > 0;
   const [activeCatIdx, setActiveCatIdx] = useState(0);
   const activeCat = cats[Math.min(activeCatIdx, cats.length - 1)] ?? null;
   const catId = activeCat?.id ?? "";
+
+  useEffect(() => {
+    if (!user) {
+      navigate({ to: "/welcome", replace: true });
+    }
+  }, [navigate, user]);
+
+  if (!user) return null;
 
   const unreadCount = useMemo(() => {
     if (!activeCat) return 0;

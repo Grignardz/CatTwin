@@ -1,6 +1,6 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { ArrowLeft, Camera, Plus, Edit2, Trash2, Download, ChevronRight, CheckCircle2, LogOut, X, FileText, AlertCircle, Lock, Eye, EyeOff } from "lucide-react";
-import { useState, useRef } from "react";
+import { useEffect, useState, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { PhoneShell } from "@/components/PhoneShell";
 import { useTheme, type Theme } from "@/lib/theme";
@@ -294,8 +294,16 @@ function Settings() {
   const [showPasswordModal, setShowPasswordModal] = useState(false);
   const avatarRef = useRef<HTMLInputElement>(null);
 
+  useEffect(() => {
+    if (!user) {
+      navigate({ to: "/welcome", replace: true });
+    }
+  }, [navigate, user]);
+
+  if (!user) return null;
+
   // Derive initials from real user name
-  const initials = (user?.name ?? "?")
+  const initials = user.name
     .split(" ")
     .map((w) => w[0])
     .slice(0, 2)
