@@ -8,6 +8,11 @@ pnpm-debug.log*
 lerna-debug.log*
 
 node_modules
+server/uploads/*
+!server/uploads/.gitkeep
+prisma/*.db
+prisma/*.db-journal
+.env
 dist
 dist-ssr
 .output

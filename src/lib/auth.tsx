@@ -227,7 +227,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const commit = useCallback((updated: User) => {
     const migrated = migrateUser(updated);
-    const users = getUsers().map((u) => u.id === migrated.id ? migrated : u);
+    const existingUsers = getUsers();
+    const hasExistingUser = existingUsers.some((u) => u.id === migrated.id);
+    const users = hasExistingUser
+      ? existingUsers.map((u) => u.id === migrated.id ? migrated : u)
+      : [...existingUsers, migrated];
     saveUsers(users);
     saveSession(migrated);
     setUser(migrated);

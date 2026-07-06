@@ -1,6 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { ArrowLeft, Camera, Upload, RotateCcw, CheckCircle2 } from "lucide-react";
-import { useState, useRef } from "react";
+import { ArrowLeft, Camera, Upload, RotateCcw, CheckCircle2, Trash2, Clock, ChevronDown, ChevronUp, AlertCircle } from "lucide-react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import { PhoneShell } from "@/components/PhoneShell";
 import { useAuth } from "@/lib/auth";
 
@@ -9,13 +9,37 @@ export const Route = createFileRoute("/photo-analysis")({
   component: PhotoAnalysis,
 });
 
-type AnalysisResult = { weightRange: string; bcsMin: number; bcsMax: number; bcs: number; risk: "Low" | "Medium" | "High"; suggestion: string };
+// ── Types ──────────────────────────────────────────────────────────────────────
+
+interface ScanResult {
+  id: string;
+  catId: string;
+  userId: string;
+  photoUrl: string;
+  thumbnailUrl: string;
+  capturedAt: string;
+  createdAt: string;
+  status: string;
+  errorMessage: string | null;
+  bcsScore: number | null;
+  bcsConfidence: number | null;
+  weightEstimateKg: number | null;
+  weightConfidence: number | null;
+  obesityRiskLevel: "Low" | "Medium" | "High" | null;
+  coatConditionScore: number | null;
+  coatConditionNotes: string | null;
+  recommendations: string[];
+  overallConfidence: number | null;
+}
+
+// ── Helpers ────────────────────────────────────────────────────────────────────
 
 function riskColor(risk: string) {
   if (risk === "High") return "bg-red-100 text-red-600 dark:bg-red-900/50 dark:text-red-300";
   if (risk === "Medium") return "bg-orange-100 text-orange-600 dark:bg-orange-900/50 dark:text-orange-300";
   return "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/50 dark:text-emerald-300";
 }
+
 function bcsBadge(score: number) {
   if (score <= 3) return { label: "Underweight", color: "bg-blue-100 text-blue-700 dark:bg-blue-900/50 dark:text-blue-300" };
   if (score <= 5) return { label: "Ideal", color: "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/50 dark:text-emerald-300" };
@@ -23,21 +47,13 @@ function bcsBadge(score: number) {
   return { label: "Obese", color: "bg-red-100 text-red-700 dark:bg-red-900/50 dark:text-red-300" };
 }
 
-// Simulated analysis — varies based on file size/name for a tiny bit of variety
-function analyzeImage(file: File): AnalysisResult {
-  const seed = file.size % 5;
-  const bcs = 4 + seed % 3; // 4, 5, or 6
-  const baseWeight = 3.2 + seed * 0.3;
-  const risk: "Low"|"Medium"|"High" = bcs <= 5 ? "Low" : bcs === 6 ? "Medium" : "High";
-  return {
-    weightRange: `${baseWeight.toFixed(1)}–${(baseWeight + 0.6).toFixed(1)} kg`,
-    bcsMin: bcs - 1, bcsMax: bcs + 1, bcs,
-    risk,
-    suggestion: bcs <= 5
-      ? "Body condition looks healthy! Keep up the current feeding routine."
-      : "Body condition may be slightly elevated. Consider adjusting portion sizes and increasing activity.",
-  };
+function formatDate(iso: string) {
+  return new Date(iso).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric", hour: "2-digit", minute: "2-digit" });
 }
+
+const API_BASE = "http://localhost:3001";
+
+// ── Component ──────────────────────────────────────────────────────────────────
 
 function PhotoAnalysis() {
   const { user, addWeightLog } = useAuth();
@@ -45,21 +61,88 @@ function PhotoAnalysis() {
   const catName = activeCat?.name ?? "your cat";
 
   const [preview, setPreview] = useState<string | null>(null);
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [analyzing, setAnalyzing] = useState(false);
-  const [result, setResult] = useState<AnalysisResult | null>(null);
+  const [result, setResult] = useState<ScanResult | null>(null);
+  const [analyzeError, setAnalyzeError] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
+
+  const [history, setHistory] = useState<ScanResult[]>([]);
+  const [historyLoading, setHistoryLoading] = useState(false);
+  const [historyError, setHistoryError] = useState<string | null>(null);
+  const [showHistory, setShowHistory] = useState(false);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+
   const inputRef = useRef<HTMLInputElement>(null);
 
-  function handleFile(file: File) {
+  // ── Fetch scan history ──────────────────────────────────────────────────────
+
+  const loadHistory = useCallback(async () => {
+    if (!activeCat || !user) return;
+    setHistoryLoading(true);
+    setHistoryError(null);
+    try {
+      const res = await fetch(
+        `${API_BASE}/api/photo-scans/${encodeURIComponent(activeCat.id)}?userId=${encodeURIComponent(user.id)}`,
+        { credentials: "include" }
+      );
+      if (!res.ok) throw new Error(`Failed to load history (${res.status})`);
+      const data = await res.json();
+      setHistory(data.scans ?? []);
+    } catch (err) {
+      setHistoryError(err instanceof Error ? err.message : "Failed to load history.");
+    } finally {
+      setHistoryLoading(false);
+    }
+  }, [activeCat, user]);
+
+  useEffect(() => {
+    if (activeCat && user) {
+      void loadHistory();
+    }
+  }, [loadHistory, activeCat, user]);
+
+  // ── Upload & analyze ────────────────────────────────────────────────────────
+
+  async function handleFile(file: File) {
+    if (!activeCat || !user) {
+      setAnalyzeError("Please add a cat profile before analysing a photo.");
+      return;
+    }
     const url = URL.createObjectURL(file);
     setPreview(url);
+    setSelectedFile(file);
     setResult(null);
     setSaved(false);
+    setAnalyzeError(null);
     setAnalyzing(true);
-    setTimeout(() => {
+
+    try {
+      const formData = new FormData();
+      formData.append("photo", file);
+      formData.append("catId", activeCat.id);
+      formData.append("userId", user.id);
+
+      const res = await fetch(`${API_BASE}/api/photo-scans`, {
+        method: "POST",
+        body: formData,
+        credentials: "include",
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        throw new Error(data.error ?? `Upload failed (${res.status})`);
+      }
+
+      setResult(data.scan as ScanResult);
+      // Refresh history to include the new scan
+      void loadHistory();
+    } catch (err) {
+      setAnalyzeError(err instanceof Error ? err.message : "Analysis failed. Please try again.");
+    } finally {
       setAnalyzing(false);
-      setResult(analyzeImage(file));
-    }, 2000);
+    }
   }
 
   function handleDrop(e: React.DragEvent) {
@@ -74,19 +157,50 @@ function PhotoAnalysis() {
   }
 
   function reset() {
-    setPreview(null); setResult(null); setSaved(false);
+    setPreview(null);
+    setSelectedFile(null);
+    setResult(null);
+    setSaved(false);
+    setAnalyzeError(null);
     if (inputRef.current) inputRef.current.value = "";
   }
 
+  // ── Save weight log (optional convenience) ───────────────────────────────────
+
   function handleSave() {
-    if (!result || !activeCat) return;
-    // Save midpoint of estimated range as a weight log
-    const mid = parseFloat(result.weightRange.split("–")[0]);
-    addWeightLog(activeCat.id, mid, new Date().toISOString().split("T")[0], `Photo analysis estimate (BCS ${result.bcs}/9)`);
+    if (!result || !activeCat || !result.weightEstimateKg) return;
+    addWeightLog(activeCat.id, result.weightEstimateKg, new Date().toISOString().split("T")[0], `Photo analysis estimate (BCS ${result.bcsScore}/9)`);
     setSaved(true);
   }
 
-  const bcs = result ? bcsBadge(result.bcs) : null;
+  // ── Delete scan ──────────────────────────────────────────────────────────────
+
+  async function handleDelete(scanId: string) {
+    if (!user) return;
+    setDeletingId(scanId);
+    try {
+      const res = await fetch(
+        `${API_BASE}/api/photo-scans/scan/${encodeURIComponent(scanId)}?userId=${encodeURIComponent(user.id)}`,
+        { method: "DELETE", credentials: "include" }
+      );
+      if (!res.ok) {
+        const d = await res.json();
+        throw new Error(d.error ?? "Delete failed");
+      }
+      // Remove from local state and reload history
+      setHistory((prev) => prev.filter((s) => s.id !== scanId));
+      if (result?.id === scanId) { reset(); }
+    } catch (err) {
+      alert(err instanceof Error ? err.message : "Failed to delete scan.");
+    } finally {
+      setDeletingId(null);
+    }
+  }
+
+  // ── Render ───────────────────────────────────────────────────────────────────
+
+  const bcs = result?.bcsScore != null ? bcsBadge(result.bcsScore) : null;
+  const canSave = !!result?.weightEstimateKg && !!activeCat;
 
   return (
     <PhoneShell>
@@ -96,23 +210,38 @@ function PhotoAnalysis() {
       </div>
 
       <div className="px-6 space-y-5 pb-6">
+
+        {/* No cat warning */}
+        {!activeCat && (
+          <div className="bg-orange-50 dark:bg-orange-900/20 border border-orange-200 dark:border-orange-800 rounded-2xl p-4 flex items-start gap-3">
+            <AlertCircle size={18} className="text-orange-500 mt-0.5 shrink-0"/>
+            <p className="text-sm text-orange-700 dark:text-orange-300">Add a cat profile first to enable photo analysis.</p>
+          </div>
+        )}
+
         {/* Upload card */}
         <div className="bg-card rounded-3xl p-5 shadow-[0_4px_16px_-8px_rgba(0,0,0,0.1)]">
           <h2 className="font-serif text-lg font-semibold mb-1">Upload Photo</h2>
           <p className="text-xs text-muted-foreground mb-4">Upload a photo of {catName} for AI body condition analysis</p>
 
           {!preview ? (
-            <div onDrop={handleDrop} onDragOver={(e) => e.preventDefault()} onClick={() => inputRef.current?.click()}
-              className="border-2 border-dashed border-border rounded-2xl p-8 flex flex-col items-center gap-3 cursor-pointer hover:border-[var(--coral)] hover:bg-[var(--coral-soft)]/30 transition-colors"
-              role="button" tabIndex={0} onKeyDown={(e) => e.key === "Enter" && inputRef.current?.click()}>
+            <div
+              onDrop={handleDrop}
+              onDragOver={(e) => e.preventDefault()}
+              onClick={() => activeCat && inputRef.current?.click()}
+              className={`border-2 border-dashed border-border rounded-2xl p-8 flex flex-col items-center gap-3 transition-colors ${activeCat ? "cursor-pointer hover:border-[var(--coral)] hover:bg-[var(--coral-soft)]/30" : "opacity-50 cursor-not-allowed"}`}
+              role="button"
+              tabIndex={activeCat ? 0 : -1}
+              onKeyDown={(e) => e.key === "Enter" && activeCat && inputRef.current?.click()}
+            >
               <div className="w-14 h-14 rounded-full bg-[var(--coral-soft)] flex items-center justify-center">
                 <Camera size={24} style={{ color: "var(--coral)" }}/>
               </div>
               <div className="text-center">
                 <p className="text-sm font-medium">Drag & drop or click to upload</p>
-                <p className="text-xs text-muted-foreground mt-1">JPG, PNG, HEIC supported</p>
+                <p className="text-xs text-muted-foreground mt-1">JPG, PNG, HEIC supported · max 10 MB</p>
               </div>
-              <button className="flex items-center gap-2 bg-[var(--nav-dark)] text-white text-sm rounded-full px-4 py-2 font-medium">
+              <button className="flex items-center gap-2 bg-[var(--nav-dark)] text-white text-sm rounded-full px-4 py-2 font-medium" disabled={!activeCat}>
                 <Upload size={14}/> Choose Photo
               </button>
             </div>
@@ -128,48 +257,198 @@ function PhotoAnalysis() {
           <input ref={inputRef} type="file" accept="image/*" className="hidden" onChange={handleInput}/>
         </div>
 
-        {/* Analyzing */}
+        {/* Analysing spinner */}
         {analyzing && (
           <div className="bg-card rounded-3xl p-5 flex flex-col items-center gap-3 py-8 shadow-[0_4px_16px_-8px_rgba(0,0,0,0.1)]">
             <div className="w-10 h-10 rounded-full border-2 border-[var(--coral)] border-t-transparent animate-spin"/>
             <p className="text-sm font-medium">Analysing {catName}'s photo…</p>
-            <p className="text-xs text-muted-foreground">Estimating body condition and weight range</p>
+            <p className="text-xs text-muted-foreground">Sending to Gemini AI for body condition assessment</p>
           </div>
         )}
 
-        {/* Results */}
-        {result && !analyzing && (
+        {/* Error state */}
+        {analyzeError && !analyzing && (
           <div className="bg-card rounded-3xl p-5 shadow-[0_4px_16px_-8px_rgba(0,0,0,0.1)] animate-in slide-in-from-bottom-2 duration-300">
-            <h2 className="font-serif text-lg font-semibold mb-4">Analysis Results</h2>
+            <div className="flex items-start gap-3">
+              <AlertCircle size={20} className="text-red-500 mt-0.5 shrink-0"/>
+              <div>
+                <p className="text-sm font-medium text-red-600 dark:text-red-400">Analysis failed</p>
+                <p className="text-xs text-muted-foreground mt-1">{analyzeError}</p>
+              </div>
+            </div>
+            <button onClick={reset} className="w-full mt-4 flex items-center justify-center gap-2 rounded-xl py-3 text-sm font-medium bg-secondary hover:bg-secondary/80 transition-all active:scale-95">
+              <RotateCcw size={14}/> Try Again
+            </button>
+          </div>
+        )}
+
+        {/* Results card */}
+        {result && !analyzing && !analyzeError && (
+          <div className="bg-card rounded-3xl p-5 shadow-[0_4px_16px_-8px_rgba(0,0,0,0.1)] animate-in slide-in-from-bottom-2 duration-300">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="font-serif text-lg font-semibold">Analysis Results</h2>
+              {result.overallConfidence != null && (
+                <span className="text-xs text-muted-foreground bg-secondary rounded-full px-2 py-0.5">
+                  {Math.round(result.overallConfidence * 100)}% confidence
+                </span>
+              )}
+            </div>
+
             <div className="space-y-3">
-              <div className="flex items-center justify-between bg-secondary rounded-2xl p-3">
-                <span className="text-sm text-muted-foreground">Estimated weight</span>
-                <span className="font-serif text-xl font-semibold">{result.weightRange}</span>
-              </div>
-              <div className="flex items-center justify-between bg-secondary rounded-2xl p-3">
-                <span className="text-sm text-muted-foreground">Body Condition Score</span>
-                <div className="flex items-center gap-2">
-                  <span className="font-serif text-xl font-semibold">{result.bcs}/9</span>
-                  <span className={`text-xs rounded-full px-2 py-0.5 ${bcs?.color}`}>{bcs?.label}</span>
+              {/* Weight estimate */}
+              {result.weightEstimateKg != null && (
+                <div className="flex items-center justify-between bg-secondary rounded-2xl p-3">
+                  <span className="text-sm text-muted-foreground">Estimated weight</span>
+                  <div className="text-right">
+                    <span className="font-serif text-xl font-semibold">{result.weightEstimateKg.toFixed(1)} kg</span>
+                    {result.weightConfidence != null && (
+                      <p className="text-xs text-muted-foreground">{Math.round(result.weightConfidence * 100)}% confidence</p>
+                    )}
+                  </div>
                 </div>
-              </div>
-              <div className="flex items-center justify-between bg-secondary rounded-2xl p-3">
-                <span className="text-sm text-muted-foreground">Obesity risk</span>
-                <span className={`text-xs font-medium rounded-full px-3 py-1 ${riskColor(result.risk)}`}>{result.risk}</span>
-              </div>
+              )}
+
+              {/* BCS */}
+              {result.bcsScore != null && (
+                <div className="flex items-center justify-between bg-secondary rounded-2xl p-3">
+                  <span className="text-sm text-muted-foreground">Body Condition Score</span>
+                  <div className="flex items-center gap-2">
+                    <span className="font-serif text-xl font-semibold">{result.bcsScore}/9</span>
+                    {bcs && <span className={`text-xs rounded-full px-2 py-0.5 ${bcs.color}`}>{bcs.label}</span>}
+                  </div>
+                </div>
+              )}
+
+              {/* Obesity risk */}
+              {result.obesityRiskLevel && (
+                <div className="flex items-center justify-between bg-secondary rounded-2xl p-3">
+                  <span className="text-sm text-muted-foreground">Obesity risk</span>
+                  <span className={`text-xs font-medium rounded-full px-3 py-1 ${riskColor(result.obesityRiskLevel)}`}>{result.obesityRiskLevel}</span>
+                </div>
+              )}
+
+              {/* Coat condition */}
+              {result.coatConditionScore != null && (
+                <div className="flex items-center justify-between bg-secondary rounded-2xl p-3">
+                  <span className="text-sm text-muted-foreground">Coat condition</span>
+                  <span className="font-serif text-xl font-semibold">{result.coatConditionScore}/100</span>
+                </div>
+              )}
             </div>
-            <div className="mt-4 bg-[var(--coral-soft)] rounded-2xl p-3">
-              <p className="text-sm text-foreground/80 leading-relaxed">{result.suggestion}</p>
-            </div>
+
+            {/* Coat notes */}
+            {result.coatConditionNotes && (
+              <div className="mt-3 bg-[var(--coral-soft)] rounded-2xl p-3">
+                <p className="text-xs font-medium text-muted-foreground mb-1">Coat notes</p>
+                <p className="text-sm text-foreground/80 leading-relaxed">{result.coatConditionNotes}</p>
+              </div>
+            )}
+
+            {/* Recommendations */}
+            {result.recommendations.length > 0 && (
+              <div className="mt-3 space-y-2">
+                <p className="text-xs font-medium text-muted-foreground">Recommendations</p>
+                {result.recommendations.map((rec, i) => (
+                  <div key={i} className="bg-[var(--coral-soft)] rounded-2xl p-3">
+                    <p className="text-sm text-foreground/80 leading-relaxed">{rec}</p>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* Save to weight log */}
             {!activeCat && <p className="mt-3 text-xs text-muted-foreground text-center">Add a cat to save results to their weight log.</p>}
-            {activeCat && (
-              <button onClick={handleSave} disabled={saved}
-                className={`w-full mt-4 flex items-center justify-center gap-2 rounded-xl py-3 text-sm font-medium transition-all active:scale-95 ${saved ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/50 dark:text-emerald-300" : "bg-[var(--nav-dark)] hover:bg-[var(--coral)] text-white"}`}>
-                {saved ? <><CheckCircle2 size={16}/> Saved to {catName}'s Weight Log</> : `Save to ${catName}'s Weight Log`}
+            {canSave && (
+              <button
+                onClick={handleSave}
+                disabled={saved}
+                className={`w-full mt-4 flex items-center justify-center gap-2 rounded-xl py-3 text-sm font-medium transition-all active:scale-95 ${saved ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/50 dark:text-emerald-300" : "bg-[var(--nav-dark)] hover:bg-[var(--coral)] text-white"}`}
+              >
+                {saved ? <><CheckCircle2 size={16}/> Saved to {catName}'s Weight Log</> : `Save ${result.weightEstimateKg?.toFixed(1)} kg to ${catName}'s Weight Log`}
               </button>
             )}
           </div>
         )}
+
+        {/* Scan history */}
+        {activeCat && (
+          <div className="bg-card rounded-3xl p-5 shadow-[0_4px_16px_-8px_rgba(0,0,0,0.1)]">
+            <button
+              onClick={() => setShowHistory((v) => !v)}
+              className="w-full flex items-center justify-between"
+            >
+              <div className="flex items-center gap-2">
+                <Clock size={16} className="text-muted-foreground"/>
+                <h2 className="font-serif text-lg font-semibold">Scan History</h2>
+                {history.length > 0 && (
+                  <span className="text-xs bg-[var(--coral-soft)] text-[var(--coral)] rounded-full px-2 py-0.5 font-medium">{history.length}</span>
+                )}
+              </div>
+              {showHistory ? <ChevronUp size={16} className="text-muted-foreground"/> : <ChevronDown size={16} className="text-muted-foreground"/>}
+            </button>
+
+            {showHistory && (
+              <div className="mt-4 space-y-3">
+                {historyLoading && (
+                  <div className="flex justify-center py-4">
+                    <div className="w-6 h-6 rounded-full border-2 border-[var(--coral)] border-t-transparent animate-spin"/>
+                  </div>
+                )}
+
+                {historyError && !historyLoading && (
+                  <p className="text-xs text-red-500 text-center">{historyError}</p>
+                )}
+
+                {!historyLoading && !historyError && history.length === 0 && (
+                  <p className="text-xs text-muted-foreground text-center py-4">No scans yet. Upload your first photo above!</p>
+                )}
+
+                {!historyLoading && history.map((scan) => {
+                  const scanBcs = scan.bcsScore != null ? bcsBadge(scan.bcsScore) : null;
+                  return (
+                    <div key={scan.id} className="bg-secondary rounded-2xl p-3 flex gap-3 items-start">
+                      {/* Thumbnail */}
+                      <img
+                        src={`${API_BASE}${scan.thumbnailUrl}`}
+                        alt="Scan thumbnail"
+                        className="w-14 h-14 rounded-xl object-cover shrink-0"
+                        onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
+                      />
+                      {/* Details */}
+                      <div className="flex-1 min-w-0">
+                        <p className="text-xs text-muted-foreground">{formatDate(scan.capturedAt)}</p>
+                        <div className="flex flex-wrap gap-1.5 mt-1">
+                          {scan.bcsScore != null && scanBcs && (
+                            <span className={`text-xs rounded-full px-2 py-0.5 ${scanBcs.color}`}>BCS {scan.bcsScore}/9 · {scanBcs.label}</span>
+                          )}
+                          {scan.weightEstimateKg != null && (
+                            <span className="text-xs bg-card rounded-full px-2 py-0.5 font-medium">{scan.weightEstimateKg.toFixed(1)} kg</span>
+                          )}
+                          {scan.obesityRiskLevel && (
+                            <span className={`text-xs rounded-full px-2 py-0.5 ${riskColor(scan.obesityRiskLevel)}`}>{scan.obesityRiskLevel} risk</span>
+                          )}
+                        </div>
+                      </div>
+                      {/* Delete */}
+                      <button
+                        onClick={() => handleDelete(scan.id)}
+                        disabled={deletingId === scan.id}
+                        className="w-7 h-7 rounded-full flex items-center justify-center text-muted-foreground hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors shrink-0 mt-0.5"
+                        aria-label="Delete scan"
+                      >
+                        {deletingId === scan.id
+                          ? <div className="w-3 h-3 rounded-full border border-current border-t-transparent animate-spin"/>
+                          : <Trash2 size={13}/>
+                        }
+                      </button>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        )}
+
       </div>
     </PhoneShell>
   );
