@@ -1,30 +1,53 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import {
-  Weight, CalendarClock, Activity, Heart, Clock,
-  ChevronRight, TrendingUp, TrendingDown, Minus,
-  ChevronLeft, X, Plus, PawPrint, Camera, Sparkles, Bell,
+  Weight,
+  CalendarClock,
+  Activity,
+  Heart,
+  Clock,
+  ChevronRight,
+  TrendingUp,
+  TrendingDown,
+  Minus,
+  ChevronLeft,
+  X,
+  Plus,
+  PawPrint,
+  Camera,
+  Sparkles,
+  Bell,
 } from "lucide-react";
 import { useEffect, useState, useRef, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { PhoneShell } from "@/components/PhoneShell";
+import { AgePicker } from "@/components/AgePicker";
 import { useAuth } from "@/lib/auth";
 import { computeNotifications } from "@/lib/notifications";
 import catHero from "@/assets/cat-hero.jpg";
-import { pageVariants, childVariants, cardVariants, staggerContainer, slideUpVariants, tapScale } from "@/lib/motion";
+import {
+  pageVariants,
+  childVariants,
+  cardVariants,
+  staggerContainer,
+  slideUpVariants,
+  tapScale,
+} from "@/lib/motion";
 
 export const Route = createFileRoute("/")({
   head: () => ({
     meta: [
       { title: "CatTwin AI — Your Cat's Health Companion" },
-      { name: "description", content: "Track your cat's health, nutrition, and wellbeing with CatTwin AI." },
+      {
+        name: "description",
+        content: "Track your cat's health, nutrition, and wellbeing with CatTwin AI.",
+      },
     ],
   }),
   component: Home,
 });
 
-
 function TrendIcon({ trend }: { trend: string }) {
-  if (trend === "up")   return <TrendingUp size={12} className="text-emerald-500" />;
+  if (trend === "up") return <TrendingUp size={12} className="text-emerald-500" />;
   if (trend === "down") return <TrendingDown size={12} className="text-red-400" />;
   return <Minus size={12} className="text-muted-foreground" />;
 }
@@ -50,11 +73,19 @@ function AddCatCard({ onAdd }: { onAdd: () => void }) {
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (!name.trim()) { setError("Cat's name is required."); return; }
+    if (!name.trim()) {
+      setError("Cat's name is required.");
+      return;
+    }
     setError("");
     setLoading(true);
     await new Promise((r) => setTimeout(r, 400));
-    addCat({ name: name.trim(), breed: breed.trim() || "Unknown breed", age: age.trim() || "Unknown", photo });
+    addCat({
+      name: name.trim(),
+      breed: breed.trim() || "Unknown breed",
+      age: age.trim() || "Unknown",
+      photo,
+    });
     setLoading(false);
     onAdd();
   }
@@ -69,9 +100,7 @@ function AddCatCard({ onAdd }: { onAdd: () => void }) {
       <h3 className="font-serif text-xl font-semibold mb-1">Add your cat</h3>
       <p className="text-sm text-muted-foreground mb-5">You can add more cats later in Settings.</p>
 
-      {error && (
-        <p className="text-xs text-red-500 dark:text-red-400 mb-3">{error}</p>
-      )}
+      {error && <p className="text-xs text-red-500 dark:text-red-400 mb-3">{error}</p>}
 
       <form onSubmit={handleSubmit} className="space-y-3">
         {/* Photo upload */}
@@ -85,14 +114,27 @@ function AddCatCard({ onAdd }: { onAdd: () => void }) {
               <img src={photo} alt="Cat photo" className="w-full h-full object-cover" />
             ) : (
               <div className="flex flex-col items-center gap-1">
-                <Camera size={20} className="text-muted-foreground group-hover:text-[var(--coral)] transition-colors" />
+                <Camera
+                  size={20}
+                  className="text-muted-foreground group-hover:text-[var(--coral)] transition-colors"
+                />
                 <span className="text-[9px] text-muted-foreground">Add photo</span>
               </div>
             )}
           </button>
-          <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={handlePhoto} />
+          <input
+            ref={fileRef}
+            type="file"
+            accept="image/*"
+            className="hidden"
+            onChange={handlePhoto}
+          />
           {photo && (
-            <button type="button" onClick={() => setPhoto(undefined)} className="text-xs text-muted-foreground mt-1.5 hover:text-red-500 transition-colors">
+            <button
+              type="button"
+              onClick={() => setPhoto(undefined)}
+              className="text-xs text-muted-foreground mt-1.5 hover:text-red-500 transition-colors"
+            >
               Remove
             </button>
           )}
@@ -105,27 +147,26 @@ function AddCatCard({ onAdd }: { onAdd: () => void }) {
           <input
             value={name}
             onChange={(e) => setName(e.target.value)}
-            placeholder="Name"
             className="mt-1.5 w-full bg-secondary rounded-xl px-3 py-3 text-sm outline-none focus:ring-2 focus:ring-[var(--coral)] placeholder:text-muted-foreground/60"
           />
         </div>
         <div>
-          <label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Breed</label>
+          <label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+            Breed
+          </label>
           <input
             value={breed}
             onChange={(e) => setBreed(e.target.value)}
-            placeholder="Breed"
             className="mt-1.5 w-full bg-secondary rounded-xl px-3 py-3 text-sm outline-none focus:ring-2 focus:ring-[var(--coral)] placeholder:text-muted-foreground/60"
           />
         </div>
         <div>
-          <label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Age</label>
-          <input
-            value={age}
-            onChange={(e) => setAge(e.target.value)}
-            placeholder="Age"
-            className="mt-1.5 w-full bg-secondary rounded-xl px-3 py-3 text-sm outline-none focus:ring-2 focus:ring-[var(--coral)] placeholder:text-muted-foreground/60"
-          />
+          <label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+            Age
+          </label>
+          <div className="mt-1.5">
+            <AgePicker value={age} onChange={setAge} className="bg-secondary py-3" />
+          </div>
         </div>
         <motion.button
           type="submit"
@@ -137,7 +178,9 @@ function AddCatCard({ onAdd }: { onAdd: () => void }) {
           {loading ? (
             <span className="w-4 h-4 rounded-full border-2 border-white/30 border-t-white animate-spin" />
           ) : (
-            <><Plus size={15} /> Add Cat</>
+            <>
+              <Plus size={15} /> Add Cat
+            </>
           )}
         </motion.button>
       </form>
@@ -198,7 +241,12 @@ function EmptyState() {
             </motion.button>
           </motion.div>
         ) : (
-          <motion.div key="form" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+          <motion.div
+            key="form"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+          >
             <AddCatCard onAdd={() => setShowForm(false)} />
           </motion.div>
         )}
@@ -214,6 +262,7 @@ function Home() {
   const cats = user?.cats ?? [];
   const hasCats = cats.length > 0;
   const [activeCatIdx, setActiveCatIdx] = useState(0);
+  const [scrollIdx, setScrollIdx] = useState(0);
   const activeCat = cats[Math.min(activeCatIdx, cats.length - 1)] ?? null;
   const catId = activeCat?.id ?? "";
 
@@ -223,26 +272,39 @@ function Home() {
     }
   }, [navigate, user]);
 
-  if (!user) return null;
-
+  // All hooks must run unconditionally on every render, so this stays above
+  // the early return below — otherwise React throws "Rendered fewer hooks
+  // than expected" as soon as `user` flips from null to a real value (e.g.
+  // right after sign-in), which crashes the whole page.
   const unreadCount = useMemo(() => {
-    if (!activeCat) return 0;
-    const dismissed = user?.dismissedNotifications ?? [];
+    if (!activeCat || !user) return 0;
+    const dismissed = user.dismissedNotifications ?? [];
     return computeNotifications(user, activeCat).filter((n) => !dismissed.includes(n.id)).length;
   }, [activeCat, user]);
 
+  if (!user) return null;
+
   // Real data for quick stats
-  const weightLogs = (user?.weightLogs ?? []).filter((l) => l.catId === catId).sort((a,b) => a.date.localeCompare(b.date));
-  const sleepLogs  = (user?.sleepLogs  ?? []).filter((l) => l.catId === catId).sort((a,b) => a.loggedAt.localeCompare(b.loggedAt));
-  const meals      = (user?.meals      ?? []).filter((m) => m.catId === catId);
+  const weightLogs = (user?.weightLogs ?? [])
+    .filter((l) => l.catId === catId)
+    .sort((a, b) => a.date.localeCompare(b.date));
+  const sleepLogs = (user?.sleepLogs ?? [])
+    .filter((l) => l.catId === catId)
+    .sort((a, b) => a.loggedAt.localeCompare(b.loggedAt));
+  const meals = (user?.meals ?? []).filter((m) => m.catId === catId);
   const vetRecords = (user?.vetRecords ?? []).filter((r) => r.catId === catId);
 
-  const latestWeight  = weightLogs.at(-1);
-  const latestSleep   = sleepLogs.at(-1);
-  const prevWeight    = weightLogs.at(-2);
-  const weightChange  = latestWeight && prevWeight ? (latestWeight.weight - prevWeight.weight) : null;
-  const nextVet       = vetRecords.filter((r) => r.status === "due_soon").sort((a,b) => a.date.localeCompare(b.date)).at(0);
-  const lastLogTime   = [...weightLogs, ...sleepLogs].sort((a,b) => (a.loggedAt ?? "").localeCompare(b.loggedAt ?? "")).at(-1);
+  const latestWeight = weightLogs.at(-1);
+  const latestSleep = sleepLogs.at(-1);
+  const prevWeight = weightLogs.at(-2);
+  const weightChange = latestWeight && prevWeight ? latestWeight.weight - prevWeight.weight : null;
+  const nextVet = vetRecords
+    .filter((r) => r.status === "due_soon")
+    .sort((a, b) => a.date.localeCompare(b.date))
+    .at(0);
+  const lastLogTime = [...weightLogs, ...sleepLogs]
+    .sort((a, b) => (a.loggedAt ?? "").localeCompare(b.loggedAt ?? ""))
+    .at(-1);
 
   function relativeTime(iso: string) {
     const diff = Date.now() - new Date(iso).getTime();
@@ -255,23 +317,72 @@ function Home() {
   }
 
   const quickStats = [
-    { icon: Weight,        label: "Weight",       value: latestWeight ? `${latestWeight.weight} kg` : "—",  change: weightChange !== null ? `${weightChange >= 0 ? "+" : ""}${weightChange.toFixed(1)} kg` : "no data", trend: weightChange !== null ? (weightChange > 0 ? "up" : weightChange < 0 ? "down" : "neutral") : "neutral", to: "/health" },
-    { icon: CalendarClock, label: "Next Vet",      value: nextVet ? nextVet.date.slice(5) : "—",             change: nextVet ? nextVet.name : "none set",    trend: "neutral" as const, to: "/health" },
-    { icon: Activity,      label: "Activity",      value: latestSleep?.activity ?? "—",                      change: latestSleep ? latestSleep.date : "no data", trend: "neutral" as const, to: "/analytics" },
-    { icon: Heart,         label: "Health Score",  value: (weightLogs.length > 0 || sleepLogs.length > 0) ? `${Math.min(100, weightLogs.length * 10 + sleepLogs.length * 10 + (meals.length > 0 ? 20 : 0))}` : "—", change: "score",  trend: "up" as const, to: "/analytics" },
-    { icon: Clock,         label: "Last Log",      value: lastLogTime ? relativeTime(lastLogTime.loggedAt) : "—", change: "nothing",  trend: "neutral" as const, to: "/health" },
+    {
+      icon: Weight,
+      label: "Weight",
+      value: latestWeight ? `${latestWeight.weight} kg` : "—",
+      change:
+        weightChange !== null
+          ? `${weightChange >= 0 ? "+" : ""}${weightChange.toFixed(1)} kg`
+          : "no data",
+      trend:
+        weightChange !== null
+          ? weightChange > 0
+            ? "up"
+            : weightChange < 0
+              ? "down"
+              : "neutral"
+          : "neutral",
+      to: "/health",
+    },
+    {
+      icon: CalendarClock,
+      label: "Next Vet",
+      value: nextVet ? nextVet.date.slice(5) : "—",
+      change: nextVet ? nextVet.name : "none set",
+      trend: "neutral" as const,
+      to: "/health",
+    },
+    {
+      icon: Activity,
+      label: "Activity",
+      value: latestSleep?.activity ?? "—",
+      change: latestSleep ? latestSleep.date : "no data",
+      trend: "neutral" as const,
+      to: "/analytics",
+    },
+    {
+      icon: Heart,
+      label: "Health Score",
+      value:
+        weightLogs.length > 0 || sleepLogs.length > 0
+          ? `${Math.min(100, weightLogs.length * 10 + sleepLogs.length * 10 + (meals.length > 0 ? 20 : 0))}`
+          : "—",
+      change: "score",
+      trend: "up" as const,
+      to: "/analytics",
+    },
+    {
+      icon: Clock,
+      label: "Last Log",
+      value: lastLogTime ? relativeTime(lastLogTime.loggedAt) : "—",
+      change: "nothing",
+      trend: "neutral" as const,
+      to: "/health",
+    },
   ];
 
-  const [scrollIdx, setScrollIdx] = useState(0);
-  const canScrollLeft  = scrollIdx > 0;
+  const canScrollLeft = scrollIdx > 0;
   const canScrollRight = scrollIdx < quickStats.length - 3;
 
   return (
     <PhoneShell>
       <motion.div variants={pageVariants} initial="hidden" animate="visible" exit="exit">
-
         {/* Header */}
-        <motion.div variants={childVariants} className="px-6 pt-12 pb-4 flex items-start justify-between">
+        <motion.div
+          variants={childVariants}
+          className="px-6 pt-12 pb-4 flex items-start justify-between"
+        >
           <div>
             <p className="text-2xl font-serif font-medium text-foreground leading-tight">Hello,</p>
             <h1 className="text-2xl font-serif font-semibold text-foreground leading-tight">
@@ -286,7 +397,11 @@ function Home() {
             <div className="flex items-center gap-2 mt-1">
               {/* Notification bell with live unread count */}
               <motion.div whileHover={{ scale: 1.06 }} whileTap={tapScale} className="relative">
-                <Link to="/notifications" className="w-9 h-9 rounded-full bg-card border border-border shadow-sm flex items-center justify-center" aria-label="Notifications">
+                <Link
+                  to="/notifications"
+                  className="w-9 h-9 rounded-full bg-card border border-border shadow-sm flex items-center justify-center"
+                  aria-label="Notifications"
+                >
                   <Bell size={15} className="text-foreground" />
                 </Link>
                 {unreadCount > 0 && (
@@ -305,9 +420,16 @@ function Home() {
                 >
                   <div className="w-6 h-6 rounded-full bg-[var(--coral-soft)] flex items-center justify-center overflow-hidden">
                     {activeCat.photo ? (
-                      <img src={activeCat.photo} alt={activeCat.name} className="w-full h-full object-cover" />
+                      <img
+                        src={activeCat.photo}
+                        alt={activeCat.name}
+                        className="w-full h-full object-cover"
+                      />
                     ) : (
-                      <span className="text-xs font-bold text-[var(--coral)]" style={{ color: "var(--coral)" }}>
+                      <span
+                        className="text-xs font-bold text-[var(--coral)]"
+                        style={{ color: "var(--coral)" }}
+                      >
                         {activeCat.name[0].toUpperCase()}
                       </span>
                     )}
@@ -332,11 +454,24 @@ function Home() {
                 <h2 className="font-serif text-lg font-semibold">Quick Stats</h2>
                 <div className="flex gap-1.5">
                   {[
-                    { dir: "left",  canScroll: canScrollLeft,  fn: () => setScrollIdx(Math.max(0, scrollIdx - 1)) },
-                    { dir: "right", canScroll: canScrollRight, fn: () => setScrollIdx(Math.min(quickStats.length - 3, scrollIdx + 1)) },
+                    {
+                      dir: "left",
+                      canScroll: canScrollLeft,
+                      fn: () => setScrollIdx(Math.max(0, scrollIdx - 1)),
+                    },
+                    {
+                      dir: "right",
+                      canScroll: canScrollRight,
+                      fn: () => setScrollIdx(Math.min(quickStats.length - 3, scrollIdx + 1)),
+                    },
                   ].map(({ dir, canScroll, fn }) => (
-                    <motion.button key={dir} onClick={fn} disabled={!canScroll} whileTap={canScroll ? tapScale : {}}
-                      className="w-7 h-7 rounded-full bg-secondary flex items-center justify-center disabled:opacity-30">
+                    <motion.button
+                      key={dir}
+                      onClick={fn}
+                      disabled={!canScroll}
+                      whileTap={canScroll ? tapScale : {}}
+                      className="w-7 h-7 rounded-full bg-secondary flex items-center justify-center disabled:opacity-30"
+                    >
                       {dir === "left" ? <ChevronLeft size={14} /> : <ChevronRight size={14} />}
                     </motion.button>
                   ))}
@@ -352,8 +487,16 @@ function Home() {
                   className="flex gap-3"
                 >
                   {quickStats.slice(scrollIdx, scrollIdx + 3).map((stat) => (
-                    <motion.div key={stat.label} whileHover={{ y: -3 }} whileTap={tapScale} className="flex-1 min-w-0">
-                      <Link to={stat.to} className="block rounded-2xl bg-card p-3 shadow-[0_4px_16px_-8px_rgba(0,0,0,0.1)]">
+                    <motion.div
+                      key={stat.label}
+                      whileHover={{ y: -3 }}
+                      whileTap={tapScale}
+                      className="flex-1 min-w-0"
+                    >
+                      <Link
+                        to={stat.to}
+                        className="block rounded-2xl bg-card p-3 shadow-[0_4px_16px_-8px_rgba(0,0,0,0.1)]"
+                      >
                         <motion.div
                           className="w-8 h-8 rounded-xl bg-[var(--coral-soft)] flex items-center justify-center mb-2"
                           whileHover={{ rotate: 8, scale: 1.1 }}
@@ -404,10 +547,15 @@ function Home() {
                   <Link
                     to="/digital-twin"
                     aria-label={`Open ${activeCat.name}'s AI Digital Twin`}
-                    className="block bg-[var(--coral-soft)] h-48 flex items-center justify-center overflow-hidden relative"
+                    className="group block bg-[var(--coral-soft)] h-48 flex items-center justify-center overflow-hidden relative"
                   >
                     {activeCat.photo ? (
-                      <motion.img whileTap={tapScale} src={activeCat.photo} alt={activeCat.name} className="w-full h-full object-cover" />
+                      <motion.img
+                        whileTap={tapScale}
+                        src={activeCat.photo}
+                        alt={activeCat.name}
+                        className="w-full h-full object-cover"
+                      />
                     ) : (
                       <motion.div
                         whileTap={tapScale}
@@ -418,6 +566,20 @@ function Home() {
                         <PawPrint size={48} style={{ color: "var(--coral)" }} />
                       </motion.div>
                     )}
+
+                    {/* Bottom gradient + tap affordance so it's obvious the photo is a button */}
+                    <div className="absolute inset-x-0 bottom-0 h-16 bg-gradient-to-t from-black/60 to-transparent pointer-events-none" />
+                    <motion.div
+                      whileHover={{ scale: 1.04 }}
+                      className="absolute bottom-3 right-3 flex items-center gap-1.5 bg-black/55 backdrop-blur-sm text-white text-xs font-medium rounded-full px-3 py-1.5 shadow-[0_4px_12px_-2px_rgba(0,0,0,0.4)]"
+                    >
+                      <Sparkles size={12} className="text-[var(--coral)]" />
+                      View AI Twin
+                      <ChevronRight
+                        size={12}
+                        className="text-white/70 group-hover:translate-x-0.5 transition-transform"
+                      />
+                    </motion.div>
                   </Link>
                   <div className="p-5">
                     <div className="flex items-start justify-between">
@@ -438,12 +600,19 @@ function Home() {
 
                     <div className="flex gap-2 mt-4">
                       {[
-                        { to: "/health",  label: "Log Weight", cls: "bg-secondary text-foreground" },
-                        { to: "/feeding", label: "Log Food",   cls: "bg-secondary text-foreground" },
-                        { to: "/chat",    label: "Chat",       cls: "bg-[var(--coral-soft)] text-foreground" },
+                        { to: "/health", label: "Log Weight", cls: "bg-secondary text-foreground" },
+                        { to: "/feeding", label: "Log Food", cls: "bg-secondary text-foreground" },
+                        {
+                          to: "/chat",
+                          label: "Chat",
+                          cls: "bg-[var(--coral-soft)] text-foreground",
+                        },
                       ].map(({ to, label, cls }) => (
                         <motion.div key={to} whileTap={tapScale} className="flex-1">
-                          <Link to={to} className={`block text-sm font-medium rounded-full py-2.5 text-center ${cls}`}>
+                          <Link
+                            to={to}
+                            className={`block text-sm font-medium rounded-full py-2.5 text-center ${cls}`}
+                          >
                             {label}
                           </Link>
                         </motion.div>
@@ -460,22 +629,49 @@ function Home() {
               <div className="bg-card rounded-2xl shadow-[0_4px_16px_-8px_rgba(0,0,0,0.08)] overflow-hidden">
                 {weightLogs.length === 0 && sleepLogs.length === 0 && meals.length === 0 ? (
                   <div className="p-6 text-center">
-                    <p className="text-sm text-muted-foreground">No activity yet. Start by logging a weight or meal.</p>
+                    <p className="text-sm text-muted-foreground">
+                      No activity yet. Start by logging a weight or meal.
+                    </p>
                     <motion.div whileTap={tapScale} className="inline-block mt-3">
-                      <Link to="/health" className="text-xs font-medium text-[var(--coral)] underline underline-offset-2">Log first entry →</Link>
+                      <Link
+                        to="/health"
+                        className="text-xs font-medium text-[var(--coral)] underline underline-offset-2"
+                      >
+                        Log first entry →
+                      </Link>
                     </motion.div>
                   </div>
                 ) : (
                   (() => {
                     const items = [
-                      ...weightLogs.slice(-3).map((l) => ({ time: relativeTime(l.loggedAt), type: "Weight logged", detail: `${l.weight} kg`, icon: Weight })),
-                      ...sleepLogs.slice(-2).map((l) => ({ time: relativeTime(l.loggedAt), type: "Sleep logged", detail: `${l.hours}h · ${l.activity}`, icon: Activity })),
-                      ...meals.slice(-2).map((m) => ({ time: relativeTime(m.createdAt), type: "Meal added", detail: `${m.food} ${m.amount}`, icon: Heart })),
-                    ].sort((a, b) => a.time.localeCompare(b.time)).slice(0, 5);
+                      ...weightLogs.slice(-3).map((l) => ({
+                        time: relativeTime(l.loggedAt),
+                        type: "Weight logged",
+                        detail: `${l.weight} kg`,
+                        icon: Weight,
+                      })),
+                      ...sleepLogs.slice(-2).map((l) => ({
+                        time: relativeTime(l.loggedAt),
+                        type: "Sleep logged",
+                        detail: `${l.hours}h · ${l.activity}`,
+                        icon: Activity,
+                      })),
+                      ...meals.slice(-2).map((m) => ({
+                        time: relativeTime(m.createdAt),
+                        type: "Meal added",
+                        detail: `${m.food} ${m.amount}`,
+                        icon: Heart,
+                      })),
+                    ]
+                      .sort((a, b) => a.time.localeCompare(b.time))
+                      .slice(0, 5);
                     return items.map((item, i) => (
                       <div key={i}>
-                        <motion.div whileHover={{ backgroundColor: "var(--color-secondary)" }} transition={{ duration: 0.15 }}
-                          className="flex items-center gap-3 px-4 py-3">
+                        <motion.div
+                          whileHover={{ backgroundColor: "var(--color-secondary)" }}
+                          transition={{ duration: 0.15 }}
+                          className="flex items-center gap-3 px-4 py-3"
+                        >
                           <div className="w-8 h-8 rounded-full bg-[var(--coral-soft)] flex items-center justify-center shrink-0">
                             <item.icon size={14} style={{ color: "var(--coral)" }} />
                           </div>
@@ -483,7 +679,9 @@ function Home() {
                             <p className="text-sm font-medium truncate">{item.type}</p>
                             <p className="text-xs text-muted-foreground">{item.detail}</p>
                           </div>
-                          <span className="text-xs text-muted-foreground whitespace-nowrap">{item.time}</span>
+                          <span className="text-xs text-muted-foreground whitespace-nowrap">
+                            {item.time}
+                          </span>
                         </motion.div>
                         {i < items.length - 1 && <div className="h-px bg-border mx-4" />}
                       </div>
@@ -499,7 +697,17 @@ function Home() {
   );
 }
 
-function StatRow({ label, value, pct, color }: { label: string; value: string; pct: number; color: string }) {
+function StatRow({
+  label,
+  value,
+  pct,
+  color,
+}: {
+  label: string;
+  value: string;
+  pct: number;
+  color: string;
+}) {
   return (
     <div>
       <div className="flex justify-between text-sm mb-1.5">

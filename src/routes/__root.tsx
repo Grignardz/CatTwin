@@ -10,6 +10,7 @@ import {
 import { useEffect, type ReactNode } from "react";
 import { ThemeProvider } from "../lib/theme";
 import { AuthProvider } from "../lib/auth";
+import { InstallPrompt } from "../components/InstallPrompt";
 
 import appCss from "../styles.css?url";
 
@@ -83,9 +84,16 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { property: "og:description", content: "Your cat's AI-powered health companion." },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary" },
+      { name: "theme-color", content: "#2B2320" },
+      { name: "apple-mobile-web-app-capable", content: "yes" },
+      { name: "apple-mobile-web-app-status-bar-style", content: "black-translucent" },
+      { name: "apple-mobile-web-app-title", content: "CatTwin" },
     ],
     links: [
       { rel: "stylesheet", href: appCss },
+      { rel: "manifest", href: "/manifest.webmanifest" },
+      { rel: "icon", href: "/favicon.png", type: "image/png" },
+      { rel: "apple-touch-icon", href: "/icons/icon-192.png" },
     ],
   }),
   shellComponent: RootShell,
@@ -116,6 +124,7 @@ function RootComponent() {
       <ThemeProvider>
         <AuthProvider>
           <Outlet />
+          <InstallPrompt />
         </AuthProvider>
       </ThemeProvider>
     </QueryClientProvider>

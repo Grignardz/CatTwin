@@ -93,7 +93,7 @@
 }
 
 @layer base {
-  * { border-color: var(--color-border); }
+  * { border-color: var(--color-border); font-weight: 700 !important; }
   body {
     background-color: var(--color-background);
     color: var(--color-foreground);

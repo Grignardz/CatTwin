@@ -11,11 +11,12 @@
 import type { User, Cat } from "./auth";
 import { computeDigitalTwin } from "./digitalTwin";
 
-export type NotificationKind = "feeding" | "vaccination" | "deworming" | "vet" | "health" | "daily_summary";
+export type NotificationKind =
+  "feeding" | "vaccination" | "deworming" | "vet" | "health" | "daily_summary";
 export type NotificationSeverity = "info" | "warning" | "critical";
 
 export interface AppNotification {
-  id: string;         // stable id, used for dismissal persistence
+  id: string; // stable id, used for dismissal persistence
   catId: string;
   kind: NotificationKind;
   severity: NotificationSeverity;
@@ -23,7 +24,7 @@ export interface AppNotification {
   body: string;
   actionLabel?: string;
   actionTo?: string;
-  createdAt: string;   // ISO — used for sorting, not scheduling
+  createdAt: string; // ISO — used for sorting, not scheduling
 }
 
 function timeToMinutes(time: string): number | null {
@@ -75,13 +76,23 @@ export function computeNotifications(user: User | null, cat: Cat | null): AppNot
   if (user.preferences.notifVet) {
     for (const record of vetRecords) {
       if (record.status !== "due_soon") continue;
-      const kind: NotificationKind = record.type === "vaccine" ? "vaccination" : record.type === "deworming" ? "deworming" : "vet";
+      const kind: NotificationKind =
+        record.type === "vaccine"
+          ? "vaccination"
+          : record.type === "deworming"
+            ? "deworming"
+            : "vet";
       notifications.push({
         id: `vet-${record.id}`,
         catId: cat.id,
         kind,
         severity: "warning",
-        title: record.type === "vaccine" ? "Vaccination due soon" : record.type === "deworming" ? "Deworming due soon" : "Vet follow-up due",
+        title:
+          record.type === "vaccine"
+            ? "Vaccination due soon"
+            : record.type === "deworming"
+              ? "Deworming due soon"
+              : "Vet follow-up due",
         body: `${cat.name}'s "${record.name}" is due around ${record.date}.`,
         actionLabel: "View Schedule",
         actionTo: "/health",
@@ -148,9 +159,12 @@ export function computeNotifications(user: User | null, cat: Cat | null): AppNot
 }
 
 /** Requests native browser notification permission. Returns the resulting permission state. */
-export async function requestBrowserNotificationPermission(): Promise<NotificationPermission | "unsupported"> {
+export async function requestBrowserNotificationPermission(): Promise<
+  NotificationPermission | "unsupported"
+> {
   if (typeof window === "undefined" || !("Notification" in window)) return "unsupported";
-  if (Notification.permission === "granted" || Notification.permission === "denied") return Notification.permission;
+  if (Notification.permission === "granted" || Notification.permission === "denied")
+    return Notification.permission;
   return Notification.requestPermission();
 }
 
@@ -158,5 +172,5 @@ export async function requestBrowserNotificationPermission(): Promise<Notificati
 export function fireBrowserNotification(title: string, body: string) {
   if (typeof window === "undefined" || !("Notification" in window)) return;
   if (Notification.permission !== "granted") return;
-  new Notification(title, { body, icon: "/favicon.ico" });
+  new Notification(title, { body, icon: "/icons/icon-192.png" });
 }

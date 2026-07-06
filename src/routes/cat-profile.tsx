@@ -9,6 +9,7 @@ import { useState, useRef } from "react";
 import { motion } from "framer-motion";
 import { PhoneShell } from "@/components/PhoneShell";
 import { DatePicker } from "@/components/DatePicker";
+import { AgePicker } from "@/components/AgePicker";
 import { useAuth } from "@/lib/auth";
 import { pageVariants, childVariants, cardVariants, tapScale } from "@/lib/motion";
 
@@ -181,7 +182,7 @@ function CatProfile() {
               <Field label="Name"><input value={form.name} onChange={(e) => set("name", e.target.value)} className={inputCls} /></Field>
               <div className="grid grid-cols-2 gap-3">
                 <Field label="Breed"><input value={form.breed} onChange={(e) => set("breed", e.target.value)} className={inputCls} /></Field>
-                <Field label="Age"><input value={form.age} onChange={(e) => set("age", e.target.value)} className={inputCls} /></Field>
+                <Field label="Age"><AgePicker value={form.age} onChange={(v) => set("age", v)} className={inputCls} /></Field>
               </div>
               <Field label="Gender">
                 <Pill value={form.gender} onChange={(v) => set("gender", v)}
