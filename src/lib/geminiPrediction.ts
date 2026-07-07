@@ -19,6 +19,23 @@ export interface AiHealthNarrative {
   predictionInsight: string | null;
 }
 
+// In-memory cache for the current tab session, keyed by cat + the numbers
+// that actually feed the prompt. Revisiting the Digital Twin page (Home ->
+// Digital Twin -> Home -> Digital Twin, etc.) without logging any new data
+// reuses the last narrative instead of burning another Gemini call for
+// text that would come out essentially the same anyway.
+const narrativeCache = new Map<string, AiHealthNarrative>();
+
+function cacheKey(cat: Cat, twin: DigitalTwin): string {
+  return [
+    cat.id,
+    twin.overallScore,
+    twin.overallConfidence,
+    twin.prediction.predictedWeightKg30d,
+    twin.prediction.predictedHealthScore30d,
+  ].join("|");
+}
+
 const narrativeSchema = Schema.object({
   properties: {
     summary: Schema.string(),
@@ -36,6 +53,10 @@ export async function generateHealthNarrative(
       predictionInsight: null,
     };
   }
+
+  const key = cacheKey(cat, twin);
+  const cached = narrativeCache.get(key);
+  if (cached) return cached;
 
   const moduleLines = twin.modules
     .filter((m) => m.hasData)
@@ -74,5 +95,10 @@ Never diagnose medical conditions — recommend a vet for anything concerning.`;
     .replace(/^```(?:json)?\s*/i, "")
     .replace(/\s*```$/, "");
   const parsed = JSON.parse(cleaned) as { summary: string; prediction_insight: string | null };
-  return { summary: parsed.summary, predictionInsight: parsed.prediction_insight };
+  const narrative: AiHealthNarrative = {
+    summary: parsed.summary,
+    predictionInsight: parsed.prediction_insight,
+  };
+  narrativeCache.set(key, narrative);
+  return narrative;
 }

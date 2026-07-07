@@ -5,6 +5,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { PhoneShell } from "@/components/PhoneShell";
 import { useAuth } from "@/lib/auth";
 import { generateReply, SUGGESTED_QUESTIONS } from "@/lib/geminiChat";
+import { toFriendlyGeminiError } from "@/lib/geminiError";
 import { pageVariants, childVariants, tapScale } from "@/lib/motion";
 
 export const Route = createFileRoute("/chat")({
@@ -44,8 +45,12 @@ function Chat() {
   }, [activeCat?.id]);
 
   useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [history.length, typing]);
+    // `block: "end"` combined with the scroll-margin on bottomRef (see JSX)
+    // makes the browser stop scrolling with enough clearance above the
+    // fixed input bar + bottom nav, instead of scrolling the last message
+    // exactly to the viewport edge where those fixed bars would cover it.
+    bottomRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
+  }, [history.length, typing, sendError]);
 
   async function sendMessage(text: string) {
     if (!text.trim() || !activeCat) return;
@@ -58,9 +63,7 @@ function Chat() {
       const reply = await generateReply(text, user, activeCat, historyForRequest);
       addChatMessage(activeCat.id, { role: "assistant", text: reply.text });
     } catch (err) {
-      setSendError(
-        err instanceof Error ? err.message : "Failed to get a response. Please try again.",
-      );
+      setSendError(toFriendlyGeminiError(err));
     } finally {
       setTyping(false);
     }
@@ -161,7 +164,9 @@ function Chat() {
         </AnimatePresence>
 
         {/* Messages */}
-        <div className="px-6 space-y-3 pb-2">
+        {/* Bottom padding clears the fixed input bar + bottom nav so the last
+            message/error never renders underneath them. */}
+        <div className="px-6 space-y-3 pb-40">
           <AnimatePresence initial={false}>
             {visibleMessages.map((msg) => (
               <motion.div
@@ -228,7 +233,7 @@ function Chat() {
             </motion.div>
           )}
 
-          <div ref={bottomRef} />
+          <div ref={bottomRef} className="h-px scroll-mb-40" />
         </div>
 
         {/* Suggested prompts */}

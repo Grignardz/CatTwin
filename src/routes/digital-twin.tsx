@@ -23,6 +23,7 @@ import { PhoneShell } from "@/components/PhoneShell";
 import { useAuth } from "@/lib/auth";
 import { computeDigitalTwin, type TwinModule } from "@/lib/digitalTwin";
 import { generateHealthNarrative } from "@/lib/geminiPrediction";
+import { toFriendlyGeminiError } from "@/lib/geminiError";
 import { CircularProgress, AnimatedBar } from "@/components/charts";
 import {
   pageVariants,
@@ -187,7 +188,7 @@ function DigitalTwin() {
       })
       .catch((err) => {
         if (cancelled) return;
-        setSummaryError(err instanceof Error ? err.message : "Failed to generate AI summary.");
+        setSummaryError(toFriendlyGeminiError(err, "Failed to generate AI summary."));
       })
       .finally(() => {
         if (!cancelled) setSummaryLoading(false);

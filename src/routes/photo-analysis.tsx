@@ -15,6 +15,7 @@ import { useState, useRef, useEffect, useCallback } from "react";
 import { PhoneShell } from "@/components/PhoneShell";
 import { useAuth } from "@/lib/auth";
 import { analyzeCatPhoto, mapRiskLevel, type VisionContext } from "@/lib/geminiVision";
+import { toFriendlyGeminiError } from "@/lib/geminiError";
 import { prepareImageForAnalysis } from "@/lib/imageUtils";
 import {
   savePhotoScan,
@@ -191,7 +192,7 @@ function PhotoAnalysis() {
       setResult(scan);
       void loadHistory();
     } catch (err) {
-      setAnalyzeError(err instanceof Error ? err.message : "Analysis failed. Please try again.");
+      setAnalyzeError(toFriendlyGeminiError(err, "Analysis failed. Please try again."));
     } finally {
       setAnalyzing(false);
     }
