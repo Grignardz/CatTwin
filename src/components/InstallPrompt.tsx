@@ -21,8 +21,8 @@ export function InstallPrompt() {
           aria-label="Install CatTwin"
         >
           <div className="bg-card border border-border rounded-3xl p-4 shadow-[0_20px_50px_-15px_rgba(0,0,0,0.35)] flex items-start gap-3">
-            <div className="w-11 h-11 rounded-2xl bg-[var(--coral-soft)] flex items-center justify-center shrink-0 overflow-hidden">
-              <CatTwinMark size={28} />
+            <div className="w-11 h-11 rounded-2xl overflow-hidden shrink-0">
+              <CatTwinMark size={44} />
             </div>
             <div className="flex-1 min-w-0">
               <p className="text-sm font-semibold">Install CatTwin</p>

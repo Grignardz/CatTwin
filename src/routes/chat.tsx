@@ -34,10 +34,18 @@ function Chat() {
   const [sendError, setSendError] = useState<string | null>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
 
-  // Seed a greeting the first time this cat has no history.
+  // Seed a greeting the first time this cat has no history. Tracks which cat
+  // IDs a greeting has already been sent for in this component's lifetime,
+  // so that if this effect fires more than once in quick succession for the
+  // same cat (e.g. dev-mode double render before `history` reflects the
+  // first write), it can't add the greeting twice — `history.length === 0`
+  // alone isn't enough of a guard since both firings would see the same
+  // stale value before either write lands.
+  const greetedCatIds = useRef(new Set<string>());
   useEffect(() => {
     if (!activeCat) return;
-    if (history.length === 0) {
+    if (history.length === 0 && !greetedCatIds.current.has(activeCat.id)) {
+      greetedCatIds.current.add(activeCat.id);
       const greetingText = `Hi! I'm your AI veterinary assistant. I can see ${activeCat.name} (${activeCat.breed}, ${activeCat.age}) is registered — ask me anything about their health, feeding, or care, and I'll answer using their actual logged data.`;
       addChatMessage(activeCat.id, { role: "assistant", text: greetingText });
     }
@@ -45,10 +53,6 @@ function Chat() {
   }, [activeCat?.id]);
 
   useEffect(() => {
-    // `block: "end"` combined with the scroll-margin on bottomRef (see JSX)
-    // makes the browser stop scrolling with enough clearance above the
-    // fixed input bar + bottom nav, instead of scrolling the last message
-    // exactly to the viewport edge where those fixed bars would cover it.
     bottomRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
   }, [history.length, typing, sendError]);
 
@@ -72,16 +76,26 @@ function Chat() {
   function handleClearHistory() {
     if (!activeCat) return;
     clearChatHistory(activeCat.id);
+    greetedCatIds.current.delete(activeCat.id);
     setClearConfirm(false);
   }
 
   const visibleMessages = collapsed ? history.slice(-3) : history;
 
   return (
-    <PhoneShell>
-      <motion.div variants={pageVariants} initial="hidden" animate="visible" exit="exit">
-        {/* Header */}
-        <motion.div variants={childVariants} className="px-6 pt-12 pb-4 flex items-center gap-3">
+    <PhoneShell fullHeight>
+      <motion.div
+        variants={pageVariants}
+        initial="hidden"
+        animate="visible"
+        exit="exit"
+        className="flex flex-col h-full min-h-0"
+      >
+        {/* Header — fixed height, does not scroll */}
+        <motion.div
+          variants={childVariants}
+          className="px-6 pt-12 pb-4 flex items-center gap-3 shrink-0"
+        >
           <motion.div whileTap={tapScale}>
             <Link
               to="/"
@@ -113,7 +127,7 @@ function Chat() {
               initial={{ opacity: 0, y: -8 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -8 }}
-              className="px-6 mb-3"
+              className="px-6 mb-3 shrink-0"
             >
               <div className="bg-red-100 dark:bg-red-900/30 rounded-2xl p-3 flex items-center justify-between gap-3">
                 <p className="text-xs text-red-700 dark:text-red-300 flex-1">
@@ -144,7 +158,7 @@ function Chat() {
             <motion.div
               initial={{ opacity: 0, y: -8 }}
               animate={{ opacity: 1, y: 0 }}
-              className="px-6 mb-2 flex justify-center"
+              className="px-6 mb-2 flex justify-center shrink-0"
             >
               <motion.button
                 whileTap={tapScale}
@@ -163,10 +177,11 @@ function Chat() {
           )}
         </AnimatePresence>
 
-        {/* Messages */}
-        {/* Bottom padding clears the fixed input bar + bottom nav so the last
-            message/error never renders underneath them. */}
-        <div className="px-6 space-y-3 pb-40">
+        {/* Messages — the ONLY scrollable region. flex-1 + min-h-0 makes it
+            fill exactly the remaining space between the header and the
+            input bar below, so the input bar can never sit on top of a
+            message no matter where the user has scrolled to. */}
+        <div className="flex-1 min-h-0 overflow-y-auto px-6 space-y-3 pb-3">
           <AnimatePresence initial={false}>
             {visibleMessages.map((msg) => (
               <motion.div
@@ -233,11 +248,11 @@ function Chat() {
             </motion.div>
           )}
 
-          <div ref={bottomRef} className="h-px scroll-mb-40" />
+          <div ref={bottomRef} />
         </div>
 
-        {/* Suggested prompts */}
-        <motion.div variants={childVariants} className="px-6 mt-2 flex gap-2 flex-wrap pb-2">
+        {/* Suggested prompts — fixed height, sits right above the input bar */}
+        <motion.div variants={childVariants} className="px-6 pt-2 flex gap-2 flex-wrap shrink-0">
           {SUGGESTED_QUESTIONS.map((p, i) => (
             <motion.button
               key={p}
@@ -254,14 +269,16 @@ function Chat() {
           ))}
         </motion.div>
 
-        {/* Input bar */}
-        <div className="fixed bottom-24 left-1/2 -translate-x-1/2 w-[92%] max-w-[380px] z-40">
-          <motion.div
-            initial={{ y: 20, opacity: 0 }}
-            animate={{ y: 0, opacity: 1 }}
-            transition={{ type: "spring", stiffness: 300, damping: 26, delay: 0.2 }}
-            className="flex items-center gap-2 bg-card rounded-full px-4 py-2 shadow-lg border border-border"
-          >
+        {/* Input bar — part of the flex column, sits below the scrollable
+            message list instead of being fixed to the viewport, and adds
+            its own bottom clearance for the BottomNav underneath it. */}
+        <motion.div
+          initial={{ y: 20, opacity: 0 }}
+          animate={{ y: 0, opacity: 1 }}
+          transition={{ type: "spring", stiffness: 300, damping: 26, delay: 0.2 }}
+          className="shrink-0 px-6 pt-3 pb-24"
+        >
+          <div className="flex items-center gap-2 bg-card rounded-full px-4 py-2 shadow-lg border border-border">
             <motion.div whileTap={{ scale: 0.85 }}>
               <Link
                 to="/photo-analysis"
@@ -290,8 +307,8 @@ function Chat() {
             >
               <Send size={16} />
             </motion.button>
-          </motion.div>
-        </div>
+          </div>
+        </motion.div>
       </motion.div>
     </PhoneShell>
   );

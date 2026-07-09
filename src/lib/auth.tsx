@@ -1,7 +1,15 @@
 /**
  * localStorage-based auth + per-user, per-cat data store.
  */
-import { createContext, useContext, useState, useEffect, useCallback, type ReactNode } from "react";
+import {
+  createContext,
+  useContext,
+  useState,
+  useEffect,
+  useCallback,
+  useRef,
+  type ReactNode,
+} from "react";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -263,6 +271,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return s ? migrateUser(s) : null;
   });
 
+  // Every mutator below reads `user` from the closure it was created in. If
+  // two mutators are called back-to-back (e.g. adding a user chat message,
+  // then awaiting a Gemini reply, then adding the assistant's reply) before
+  // React re-renders in between, the second call still sees the *old* user
+  // object and silently overwrites the first update. This ref always holds
+  // the latest committed user, synchronously, so `commit()` can build off of
+  // it instead of the possibly-stale `user` from render scope.
+  const userRef = useRef(user);
+  userRef.current = user;
+
   useEffect(() => {
     const handler = (e: StorageEvent) => {
       if (e.key === SESSION_KEY) {
@@ -283,6 +301,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       : [...existingUsers, migrated];
     saveUsers(users);
     saveSession(migrated);
+    userRef.current = migrated;
     setUser(migrated);
   }, []);
 
@@ -297,6 +316,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       return { error: "Incorrect password. Please try again." };
     const hydrated = migrateUser(found);
     saveSession(hydrated);
+    userRef.current = hydrated;
     setUser(hydrated);
     return {};
   }
@@ -324,6 +344,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     });
     saveUsers([...users, newUser]);
     saveSession(newUser);
+    userRef.current = newUser;
     setUser(newUser);
     return {};
   }
@@ -382,60 +403,73 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     });
     saveUsers([...users, newUser]);
     saveSession(newUser);
+    userRef.current = newUser;
     setUser(newUser);
     return {};
   }
 
   function logout() {
     saveSession(null);
+    userRef.current = null;
     setUser(null);
   }
 
   function updateUser(
     data: Partial<Pick<User, "name" | "preferences" | "avatar" | "phone" | "country">>,
   ) {
-    if (!user) return;
-    commit({ ...user, ...data, preferences: { ...user.preferences, ...(data.preferences ?? {}) } });
+    const current = userRef.current;
+    if (!current) return;
+    commit({
+      ...current,
+      ...data,
+      preferences: { ...current.preferences, ...(data.preferences ?? {}) },
+    });
   }
 
   async function changePassword(currentPassword: string, newPassword: string) {
-    if (!user) return { error: "Not signed in." };
+    const current = userRef.current;
+    if (!current) return { error: "Not signed in." };
     await new Promise((r) => setTimeout(r, 700));
-    if (!checkPassword(currentPassword, user.passwordHash))
+    if (!checkPassword(currentPassword, current.passwordHash))
       return { error: "Current password is incorrect." };
     if (newPassword.length < 8) return { error: "New password must be at least 8 characters." };
-    commit({ ...user, passwordHash: hashPassword(newPassword) });
+    commit({ ...current, passwordHash: hashPassword(newPassword) });
     return {};
   }
 
   // ── Cats ──────────────────────────────────────────────────────────────────
 
   function addCat(cat: Omit<Cat, "id" | "addedAt">) {
-    if (!user) return;
-    commit({ ...user, cats: [...user.cats, { ...cat, id: uid(), addedAt: now() }] });
+    const current = userRef.current;
+    if (!current) return;
+    commit({ ...current, cats: [...current.cats, { ...cat, id: uid(), addedAt: now() }] });
   }
 
   function removeCat(catId: string) {
-    if (!user) return;
-    commit({ ...user, cats: user.cats.filter((c) => c.id !== catId) });
+    const current = userRef.current;
+    if (!current) return;
+    commit({ ...current, cats: current.cats.filter((c) => c.id !== catId) });
   }
 
   function updateCat(catId: string, data: Partial<Omit<Cat, "id" | "addedAt">>) {
-    if (!user) return;
-    commit({ ...user, cats: user.cats.map((c) => (c.id === catId ? { ...c, ...data } : c)) });
+    const current = userRef.current;
+    if (!current) return;
+    commit({ ...current, cats: current.cats.map((c) => (c.id === catId ? { ...c, ...data } : c)) });
   }
 
   // ── Weight logs ───────────────────────────────────────────────────────────
 
   function addWeightLog(catId: string, weight: number, date: string, note?: string) {
-    if (!user) return;
+    const current = userRef.current;
+    if (!current) return;
     const log: WeightLog = { id: uid(), catId, weight, date, note, loggedAt: now() };
-    commit({ ...user, weightLogs: [...user.weightLogs, log] });
+    commit({ ...current, weightLogs: [...current.weightLogs, log] });
   }
 
   function removeWeightLog(logId: string) {
-    if (!user) return;
-    commit({ ...user, weightLogs: user.weightLogs.filter((l) => l.id !== logId) });
+    const current = userRef.current;
+    if (!current) return;
+    commit({ ...current, weightLogs: current.weightLogs.filter((l) => l.id !== logId) });
   }
 
   // ── Sleep / activity logs ─────────────────────────────────────────────────
@@ -447,100 +481,121 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     bcs: number,
     date: string,
   ) {
-    if (!user) return;
+    const current = userRef.current;
+    if (!current) return;
     const log: SleepLog = { id: uid(), catId, hours, activity, bcs, date, loggedAt: now() };
-    commit({ ...user, sleepLogs: [...user.sleepLogs, log] });
+    commit({ ...current, sleepLogs: [...current.sleepLogs, log] });
   }
 
   // ── Meals ─────────────────────────────────────────────────────────────────
 
   function addMeal(catId: string, meal: Omit<Meal, "id" | "catId" | "createdAt">) {
-    if (!user) return;
-    commit({ ...user, meals: [...user.meals, { ...meal, id: uid(), catId, createdAt: now() }] });
+    const current = userRef.current;
+    if (!current) return;
+    commit({
+      ...current,
+      meals: [...current.meals, { ...meal, id: uid(), catId, createdAt: now() }],
+    });
   }
 
   function removeMeal(mealId: string) {
-    if (!user) return;
-    commit({ ...user, meals: user.meals.filter((m) => m.id !== mealId) });
+    const current = userRef.current;
+    if (!current) return;
+    commit({ ...current, meals: current.meals.filter((m) => m.id !== mealId) });
   }
 
   function updateMeal(mealId: string, data: Partial<Omit<Meal, "id" | "catId" | "createdAt">>) {
-    if (!user) return;
-    commit({ ...user, meals: user.meals.map((m) => (m.id === mealId ? { ...m, ...data } : m)) });
+    const current = userRef.current;
+    if (!current) return;
+    commit({
+      ...current,
+      meals: current.meals.map((m) => (m.id === mealId ? { ...m, ...data } : m)),
+    });
   }
 
   // ── Vet records ───────────────────────────────────────────────────────────
 
   function addVetRecord(catId: string, record: Omit<VetRecord, "id" | "catId" | "createdAt">) {
-    if (!user) return;
+    const current = userRef.current;
+    if (!current) return;
     commit({
-      ...user,
-      vetRecords: [...user.vetRecords, { ...record, id: uid(), catId, createdAt: now() }],
+      ...current,
+      vetRecords: [...current.vetRecords, { ...record, id: uid(), catId, createdAt: now() }],
     });
   }
 
   function removeVetRecord(recordId: string) {
-    if (!user) return;
-    commit({ ...user, vetRecords: user.vetRecords.filter((r) => r.id !== recordId) });
+    const current = userRef.current;
+    if (!current) return;
+    commit({ ...current, vetRecords: current.vetRecords.filter((r) => r.id !== recordId) });
   }
 
   function updateVetRecord(
     recordId: string,
     data: Partial<Omit<VetRecord, "id" | "catId" | "createdAt">>,
   ) {
-    if (!user) return;
+    const current = userRef.current;
+    if (!current) return;
     commit({
-      ...user,
-      vetRecords: user.vetRecords.map((r) => (r.id === recordId ? { ...r, ...data } : r)),
+      ...current,
+      vetRecords: current.vetRecords.map((r) => (r.id === recordId ? { ...r, ...data } : r)),
     });
   }
 
   // ── Hydration logs ────────────────────────────────────────────────────────
 
   function addHydrationLog(catId: string, ml: number, date: string) {
-    if (!user) return;
+    const current = userRef.current;
+    if (!current) return;
     const log: HydrationLog = { id: uid(), catId, ml, date, loggedAt: now() };
-    commit({ ...user, hydrationLogs: [...user.hydrationLogs, log] });
+    commit({ ...current, hydrationLogs: [...current.hydrationLogs, log] });
   }
 
   // ── Chat memory ───────────────────────────────────────────────────────────
 
   function addChatMessage(catId: string, msg: Omit<ChatMessage, "id" | "catId" | "createdAt">) {
-    if (!user) return;
+    const current = userRef.current;
+    if (!current) return;
     const message: ChatMessage = { ...msg, id: uid(), catId, createdAt: now() };
     // Cap history at 200 messages per cat to keep localStorage lean.
-    const existing = user.chatMessages.filter((m) => m.catId === catId);
-    const others = user.chatMessages.filter((m) => m.catId !== catId);
+    const existing = current.chatMessages.filter((m) => m.catId === catId);
+    const others = current.chatMessages.filter((m) => m.catId !== catId);
     const trimmed = [...existing, message].slice(-200);
-    commit({ ...user, chatMessages: [...others, ...trimmed] });
+    commit({ ...current, chatMessages: [...others, ...trimmed] });
   }
 
   function clearChatHistory(catId: string) {
-    if (!user) return;
-    commit({ ...user, chatMessages: user.chatMessages.filter((m) => m.catId !== catId) });
+    const current = userRef.current;
+    if (!current) return;
+    commit({ ...current, chatMessages: current.chatMessages.filter((m) => m.catId !== catId) });
   }
 
   // ── Notifications ─────────────────────────────────────────────────────────
 
   function dismissNotification(notificationId: string) {
-    if (!user) return;
-    if (user.dismissedNotifications.includes(notificationId)) return;
-    commit({ ...user, dismissedNotifications: [...user.dismissedNotifications, notificationId] });
+    const current = userRef.current;
+    if (!current) return;
+    if (current.dismissedNotifications.includes(notificationId)) return;
+    commit({
+      ...current,
+      dismissedNotifications: [...current.dismissedNotifications, notificationId],
+    });
   }
 
   // ── Delete all cat data ───────────────────────────────────────────────────
 
   function deleteAllCatData(catId: string) {
-    if (!user) return;
+    const current = userRef.current;
+    if (!current) return;
     commit({
-      ...user,
-      weightLogs: user.weightLogs.filter((l) => l.catId !== catId),
-      sleepLogs: user.sleepLogs.filter((l) => l.catId !== catId),
-      meals: user.meals.filter((m) => m.catId !== catId),
-      vetRecords: user.vetRecords.filter((r) => r.catId !== catId),
-      hydrationLogs: user.hydrationLogs.filter((h) => h.catId !== catId),
-      chatMessages: user.chatMessages.filter((m) => m.catId !== catId),
-      dismissedNotifications: user.dismissedNotifications.filter((id) => !id.includes(catId)),
+      ...current,
+      weightLogs: current.weightLogs.filter((l) => l.catId !== catId),
+      sleepLogs: current.sleepLogs.filter((l) => l.catId !== catId),
+      meals: current.meals.filter((m) => m.catId !== catId),
+      vetRecords: current.vetRecords.filter((r) => r.catId !== catId),
+      hydrationLogs: current.hydrationLogs.filter((h) => h.catId !== catId),
+      chatMessages: current.chatMessages.filter((m) => m.catId !== catId),
+      dismissedNotifications: current.dismissedNotifications.filter((id) => !id.includes(catId)),
     });
   }
 

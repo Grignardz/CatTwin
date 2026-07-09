@@ -2,11 +2,17 @@
 @source "../src";
 @import "tw-animate-css";
 
+@import "@fontsource/inter/400.css";
+@import "@fontsource/inter/500.css";
+@import "@fontsource/inter/600.css";
+@import "@fontsource/inter/700.css";
+@import "@fontsource/inter/800.css";
+
 @custom-variant dark (&:is(.dark *));
 
 @theme inline {
-  --font-serif: "SF Pro Display", ui-serif, Georgia, serif;
-  --font-sans: "SF Pro Text", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --font-serif: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --font-sans: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
   --radius-sm: calc(var(--radius) - 4px);
   --radius-md: calc(var(--radius) - 2px);
   --radius-lg: var(--radius);
@@ -66,30 +72,33 @@
 }
 
 /* ── Dark mode token overrides ─────────────────────────────────────────── */
+/* Page background is pitch black, but cards/pills/inputs get a visibly
+   lighter grey so data (pills, stat boxes, inputs) stays readable against
+   it instead of nearly blending into the black. */
 .dark {
-  --background: oklch(0.18 0.005 260);
-  --foreground: oklch(0.92 0.008 60);
-  --card: oklch(0.22 0.005 260);
-  --card-foreground: oklch(0.92 0.008 60);
-  --popover: oklch(0.22 0.005 260);
-  --popover-foreground: oklch(0.92 0.008 60);
+  --background: oklch(0 0 0);
+  --foreground: oklch(0.94 0.006 60);
+  --card: oklch(0.14 0.004 260);
+  --card-foreground: oklch(0.94 0.006 60);
+  --popover: oklch(0.14 0.004 260);
+  --popover-foreground: oklch(0.94 0.006 60);
   --primary: oklch(0.78 0.11 30);
-  --primary-foreground: oklch(0.18 0.005 260);
-  --secondary: oklch(0.26 0.005 260);
-  --secondary-foreground: oklch(0.92 0.008 60);
-  --muted: oklch(0.26 0.005 260);
-  --muted-foreground: oklch(0.65 0.01 260);
-  --accent: oklch(0.28 0.015 30);
-  --accent-foreground: oklch(0.92 0.008 60);
+  --primary-foreground: oklch(0 0 0);
+  --secondary: oklch(0.20 0.004 260);
+  --secondary-foreground: oklch(0.94 0.006 60);
+  --muted: oklch(0.20 0.004 260);
+  --muted-foreground: oklch(0.68 0.01 260);
+  --accent: oklch(0.22 0.02 30);
+  --accent-foreground: oklch(0.94 0.006 60);
   --destructive: oklch(0.6 0.22 25);
-  --destructive-foreground: oklch(0.92 0.008 60);
-  --border: oklch(0.30 0.005 260);
-  --input: oklch(0.26 0.005 260);
+  --destructive-foreground: oklch(0.94 0.006 60);
+  --border: oklch(0.24 0.004 260);
+  --input: oklch(0.20 0.004 260);
   --ring: oklch(0.78 0.11 30);
   --coral: oklch(0.78 0.08 35);
-  --coral-soft: oklch(0.30 0.03 35);
+  --coral-soft: oklch(0.24 0.03 35);
   --warm-yellow: oklch(0.78 0.12 85);
-  --nav-dark: oklch(0.16 0.005 260);
+  --nav-dark: oklch(0.10 0.004 260);
 }
 
 @layer base {

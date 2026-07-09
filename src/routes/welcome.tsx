@@ -2,9 +2,13 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { ArrowRight, Sparkles, Heart, BarChart2, UtensilsCrossed } from "lucide-react";
 import { motion } from "framer-motion";
 import { AuthShell } from "@/components/AuthShell";
+import { CatTwinMark } from "@/components/Logo";
 import {
-  authPageVariants, childVariants, staggerContainer,
-  cardVariants, tapScale,
+  authPageVariants,
+  childVariants,
+  staggerContainer,
+  cardVariants,
+  tapScale,
 } from "@/lib/motion";
 
 export const Route = createFileRoute("/welcome")({
@@ -37,9 +41,18 @@ function Welcome() {
         {/* Hero blob background */}
         <div className="relative">
           {/* Top bar */}
-          <motion.div variants={childVariants} className="relative px-6 pt-14 pb-0 flex items-center justify-between z-10">
-            <span className="font-serif font-semibold text-lg text-foreground">CatTwin</span>
-            <Link to="/login" className="text-sm font-medium text-foreground bg-secondary border border-border rounded-full px-4 py-1.5 hover:bg-[var(--coral-soft)] transition-colors">
+          <motion.div
+            variants={childVariants}
+            className="relative px-6 pt-14 pb-0 flex items-center justify-between z-10"
+          >
+            <div className="flex items-center gap-2">
+              <CatTwinMark size={30} />
+              <span className="font-serif font-semibold text-lg text-foreground">CatTwin</span>
+            </div>
+            <Link
+              to="/login"
+              className="text-sm font-medium text-foreground bg-secondary border border-border rounded-full px-4 py-1.5 hover:bg-[var(--coral-soft)] transition-colors"
+            >
               Sign in
             </Link>
           </motion.div>
@@ -48,7 +61,8 @@ function Welcome() {
         {/* Headline */}
         <motion.div variants={childVariants} className="px-6 pt-7 pb-1">
           <h1 className="font-serif text-[28px] font-semibold text-foreground leading-tight">
-            Your cat's intelligent<br />
+            Your cat's intelligent
+            <br />
             <span className="text-[var(--coral)]">health companion</span>
           </h1>
           <p className="text-sm text-muted-foreground mt-3 leading-relaxed">
@@ -57,7 +71,12 @@ function Welcome() {
         </motion.div>
 
         {/* Feature pills */}
-        <motion.div variants={staggerContainer} initial="hidden" animate="visible" className="px-6 pt-5 grid grid-cols-2 gap-2.5">
+        <motion.div
+          variants={staggerContainer}
+          initial="hidden"
+          animate="visible"
+          className="px-6 pt-5 grid grid-cols-2 gap-2.5"
+        >
           {features.map(({ icon: Icon, label, desc }, i) => (
             <motion.div
               key={label}
@@ -88,7 +107,10 @@ function Welcome() {
               className="flex items-center justify-center gap-2 w-full bg-[var(--nav-dark)] hover:bg-[var(--coral)] text-white font-medium text-sm rounded-2xl py-3.5 transition-colors"
             >
               Get started — it's free
-              <motion.span animate={{ x: [0, 4, 0] }} transition={{ repeat: Infinity, repeatDelay: 2, duration: 0.5 }}>
+              <motion.span
+                animate={{ x: [0, 4, 0] }}
+                transition={{ repeat: Infinity, repeatDelay: 2, duration: 0.5 }}
+              >
                 <ArrowRight size={16} />
               </motion.span>
             </Link>
@@ -103,9 +125,14 @@ function Welcome() {
           </motion.div>
           <p className="text-center text-[11px] text-muted-foreground leading-relaxed pt-1">
             By continuing, you agree to our{" "}
-            <button className="underline underline-offset-2 hover:text-foreground transition-colors">Terms</button>
-            {" "}and{" "}
-            <button className="underline underline-offset-2 hover:text-foreground transition-colors">Privacy Policy</button>.
+            <button className="underline underline-offset-2 hover:text-foreground transition-colors">
+              Terms
+            </button>{" "}
+            and{" "}
+            <button className="underline underline-offset-2 hover:text-foreground transition-colors">
+              Privacy Policy
+            </button>
+            .
           </p>
         </motion.div>
       </motion.div>
