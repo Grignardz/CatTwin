@@ -22,8 +22,8 @@ export function PhoneShell({
       <div
         className={
           fullHeight
-            ? "relative w-full max-w-[420px] h-screen bg-background flex flex-col overflow-hidden border-x border-border"
-            : "relative w-full max-w-[420px] min-h-screen bg-background pb-28 border-x border-border"
+            ? "relative w-full max-w-[420px] h-screen bg-background flex flex-col overflow-hidden"
+            : "relative w-full max-w-[420px] min-h-screen bg-background pb-28"
         }
       >
         {children}
