@@ -35,11 +35,10 @@ export function Logo({ size = "md", markOnly = false, className = "" }: LogoProp
   );
 }
 
-/** Just the circular twin-cats mark — the app's brand logo image. */
 export function CatTwinMark({ size = 36, className = "" }: { size?: number; className?: string }) {
   return (
     <img
-      src="/icons/icon-512.png"
+      src="/logo2.png"
       width={size}
       height={size}
       className={`rounded-xl object-cover ${className}`}
